@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { formatDistanceToNow, isToday, format } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { formatINR, mapTransferLabel } from "@/lib/utils";
@@ -21,8 +21,6 @@ interface Transaction {
   description?: string;
   amount: number;
   createdAt: string;
-  status?: "completed" | "pending" | "failed";
-  transferId?: string;
 }
 
 export default function DashboardPage() {
@@ -34,7 +32,7 @@ export default function DashboardPage() {
 
   const totalBalance = accounts.reduce(
     (sum, a) => sum + (a.balance ?? a.currentBalance ?? 0),
-    0,
+    0
   );
 
   useEffect(() => {
@@ -58,6 +56,7 @@ export default function DashboardPage() {
   // smooth count-up animation
   useEffect(() => {
     if (loading) return;
+
     const duration = 400;
     let start = 0;
     let raf: number;
@@ -83,7 +82,7 @@ export default function DashboardPage() {
             <CardContent className="p-5">
               <p className="text-lg font-medium">Welcome, {name}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Here’s a snapshot of your account activity
+                Your money, all in one place
               </p>
             </CardContent>
           </Card>
@@ -92,46 +91,61 @@ export default function DashboardPage() {
         {/* BALANCE CARD */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle>Current Account Balance</CardTitle>
+            <CardTitle>Total Account Balance</CardTitle>
           </CardHeader>
 
           <CardContent className="px-6 py-8">
-            {loading ? (
-              <div className="h-44 w-44 rounded-full bg-muted animate-pulse" />
-            ) : accounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No accounts linked yet
-              </p>
-            ) : (
-              <div className="flex items-center gap-8">
-                {/* DONUT */}
-                <div className="relative h-44 w-44">
-                  <DoughnutChart
-                    accounts={accounts.map((a) => ({
-                      name: a.name,
-                      currentBalance: a.balance ?? a.currentBalance ?? 0,
-                    }))}
-                  />
+            <div className="flex justify-center items-center">
+              {loading ? (
+                /* CENTERED SKELETON */
+                <div className="flex items-center gap-8">
+                  <div className="h-44 w-44 rounded-full bg-muted animate-pulse" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                    <div className="h-5 w-40 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+              ) : accounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No accounts linked yet
+                </p>
+              ) : (
+                /* REAL CONTENT — SAME STRUCTURE */
+                <div className="flex items-center gap-8">
+                  {/* DONUT */}
+                  <div className="relative h-44 w-44">
+                    <DoughnutChart
+                      accounts={accounts.map((a) => ({
+                        name: a.name,
+                        currentBalance:
+                          a.balance ?? a.currentBalance ?? 0,
+                      }))}
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Balance
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {formatINR(displayBalance)}
+                      </p>
+                    </div>
+                  </div>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <p className="text-sm text-muted-foreground">Balance</p>
-                    <p className="text-2xl font-bold">
-                      {formatINR(displayBalance)}
+                  {/* META */}
+                  <div>
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "#f85e05" }}
+                    >
+                      {accounts.length} linked accounts
+                    </p>
+                    <p className="text-lg font-medium mt-1">
+                      Total Account Balance
                     </p>
                   </div>
                 </div>
-
-                {/* META TEXT (NO BALANCE HERE) */}
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {accounts.length} linked accounts
-                  </p>
-                  <p className="text-lg font-medium mt-1">
-                    Total Account Balance
-                  </p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -149,7 +163,6 @@ export default function DashboardPage() {
 
           <CardContent className="space-y-3">
             {recent.slice(0, 5).map((t) => {
-              console.log("FRONTEND RENDER: dashboard recent transaction", t);
               const isIncome = t.type === "income";
               return (
                 <div
@@ -165,12 +178,16 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium">
                         {t.description ||
-                          mapTransferLabel(t.type, (t as any).category)}
+                          mapTransferLabel(
+                            t.type,
+                            (t as any).category
+                          )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(t.createdAt), {
-                          addSuffix: true,
-                        })}
+                        {formatDistanceToNow(
+                          new Date(t.createdAt),
+                          { addSuffix: true }
+                        )}
                       </p>
                     </div>
                   </div>
@@ -178,14 +195,19 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <p
                       className={`font-semibold ${
-                        isIncome ? "text-emerald-600" : "text-rose-600"
+                        isIncome
+                          ? "text-emerald-600"
+                          : "text-rose-600"
                       }`}
                     >
                       {isIncome ? "+" : "-"}
                       {formatINR(Math.abs(t.amount))}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(t.createdAt), "MMM d, h:mm a")}
+                      {format(
+                        new Date(t.createdAt),
+                        "MMM d, h:mm a"
+                      )}
                     </p>
                   </div>
                 </div>

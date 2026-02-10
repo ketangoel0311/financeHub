@@ -138,16 +138,7 @@ export default function ConnectBankPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Linked bank accounts</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoadingAccounts}
-              onClick={fetchAccounts}
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", isLoadingAccounts && "animate-spin")}
-              />
-            </Button>
+            
           </CardHeader>
 
           <CardContent>

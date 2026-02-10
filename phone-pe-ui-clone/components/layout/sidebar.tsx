@@ -21,7 +21,7 @@ const navItems = [
   { href: "/transfer", label: "Transfer", icon: ArrowLeftRight },
   { href: "/transactions", label: "Transaction", icon: Receipt },
   { href: "/connect-bank", label: "Connect Bank Accounts", icon: Landmark },
-  { href: "/accounts", label: "Accounts and Cards", icon: CreditCard },
+  { href: "/accounts", label: "Accounts", icon: CreditCard },
 ];
 
 export function Sidebar() {
@@ -58,16 +58,10 @@ export function Sidebar() {
       </nav>
 
       <div className="px-4 pb-6 space-y-1">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground transition-colors"
-        >
-          <Settings className="h-5 w-5" />
-          Settings
-        </Link>
+        
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground transition-colors"
+          className="w-full flex items-center gap-3 rounded-lg px-4 py-5 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground transition-colors"
         >
           <LogOut className="h-5 w-5" />
           Log out

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,9 +32,7 @@ export function Header({ title }: HeaderProps) {
     <header className="flex items-center justify-between mb-6">
       <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
       <div className="flex items-center gap-4 ">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-        </Button>
+   
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
