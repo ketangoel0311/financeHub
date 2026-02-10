@@ -9,6 +9,28 @@ router.get('/', auth, async (req, res) => {
   try {
     const accounts = await Account.find({ user: req.userId });
     
+    // Backfill missing shareable IDs to ensure every account has one
+    const updates = [];
+    for (const acc of accounts) {
+      if (!acc.plaidAccountId) {
+        // Generate unique-ish shareable id
+        let id;
+        let exists = true;
+        let attempts = 0;
+        while (exists && attempts < 5) {
+          id = `SHR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+          // eslint-disable-next-line no-await-in-loop
+          exists = !!(await Account.findOne({ plaidAccountId: id }));
+          attempts++;
+        }
+        acc.plaidAccountId = id;
+        updates.push(acc.save());
+      }
+    }
+    if (updates.length) {
+      await Promise.all(updates);
+    }
+    
     const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
 
     res.json({

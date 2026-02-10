@@ -35,7 +35,7 @@ const accountSchema = new mongoose.Schema({
   cardExpiry: String,
   cardLimit: Number,
   cardUsed: Number,
-  plaidAccountId: { type: String, default: null },
+  plaidAccountId: { type: String, default: null, unique: true, index: true },
   plaidItemId: { type: String, default: null },
   createdAt: {
     type: Date,

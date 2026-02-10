@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const Contact = require("../models/Contact");
 const Account = require("../models/Account");
 const Ledger = require("../models/Ledger");
+const Transaction = require("../models/Transaction");
+const User = require("../models/User");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
@@ -53,71 +55,144 @@ router.post("/contacts", auth, async (req, res) => {
   }
 });
 
-// Make transfer (LEDGER-BASED, CORRECTED)
 router.post("/", auth, async (req, res) => {
-  const { fromAccountId, contactId, amount } = req.body;
+  const { sourceAccountId, receiverShareableId, amount, note } = req.body;
 
-  if (!fromAccountId || !contactId || !amount || amount <= 0) {
-    return res.status(400).json({ message: "Invalid transfer data" });
+  console.log("POST /api/transfer", {
+    body: req.body,
+    userId: req.userId,
+  });
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!sourceAccountId) {
+    return res.status(400).json({ message: "sourceAccountId is required" });
+  }
+  if (!receiverShareableId) {
+    return res.status(400).json({ message: "receiverShareableId is required" });
+  }
+  const amt = Number(amount);
+  if (!Number.isFinite(amt)) {
+    return res.status(400).json({ message: "amount must be a valid number" });
+  }
+  if (amt <= 0) {
+    return res.status(400).json({ message: "amount must be greater than 0" });
   }
 
   const session = await mongoose.startSession();
-
   try {
     session.startTransaction();
 
-    // Sender account
-    const from = await Account.findById(fromAccountId).session(session);
-    if (!from) throw new Error("Source account not found");
-
-    // Contact → Destination account
-    const contact = await Contact.findById(contactId)
-      .populate("account")
-      .session(session);
-
-    if (!contact || !contact.account) {
-      throw new Error("Invalid transfer target");
+    const from = await Account.findOne({
+      _id: sourceAccountId,
+      user: req.userId,
+    }).session(session);
+    if (!from) {
+      throw new Error("Source account not found or not owned by user");
     }
 
-    const to = contact.account;
+    const to = await Account.findOne({
+      plaidAccountId: receiverShareableId,
+    }).session(session);
+    if (!to) {
+      throw new Error("Receiver account not found for provided shareable ID");
+    }
 
-    // Balance check
-    if (from.balance < amount) {
+    if (String(from._id) === String(to._id)) {
+      throw new Error("Cannot transfer to the same account");
+    }
+
+    if (from.balance < amt) {
       throw new Error("Insufficient balance");
     }
 
-    // Update balances
-    from.balance -= amount;
-    to.balance += amount;
+    from.balance -= amt;
+    to.balance += amt;
 
     await from.save({ session });
     await to.save({ session });
 
-    // Ledger entry (source of truth)
     await Ledger.create(
       [
         {
           fromAccount: from._id,
           toAccount: to._id,
-          amount,
+          amount: amt,
         },
       ],
       { session },
     );
 
-    await session.commitTransaction();
+    const receiverUser = await User.findById(to.user).session(session);
+    if (!receiverUser) throw new Error("Receiver user not found");
 
-    res.status(201).json({
-      message: "Transfer successful",
+    await User.findByIdAndUpdate(
+      req.userId,
+      { $inc: { totalBalance: -amt, totalExpense: amt } },
+      { session },
+    );
+
+    await User.findByIdAndUpdate(
+      receiverUser._id,
+      { $inc: { totalBalance: amt, totalIncome: amt } },
+      { session },
+    );
+
+    const transferId =
+      "TRF" +
+      Date.now() +
+      Math.random().toString(36).slice(2, 10).toUpperCase();
+    console.log("Transfer BEFORE DB write:", {
+      fromAccount: from._id,
+      toAccount: to._id,
+      amount: amt,
+      transferType: "internal",
+      userId: req.userId,
+      receiverUserId: receiverUser._id,
     });
+
+    const saved = await Transaction.create(
+      [
+        {
+          user: req.userId,
+          type: "expense",
+          category: "Transfer",
+          description: note || "Self Account Debit",
+          amount: amt,
+          recipientName: receiverUser.name || receiverUser.email,
+          recipientAccount: `${to.bankName} ${to.accountType} ****${(to.accountNumber || "").slice(-4)}`,
+          status: "completed",
+          transferId,
+          counterpartyShareableId: receiverShareableId,
+        },
+        {
+          user: receiverUser._id,
+          type: "income",
+          category: "Transfer",
+          description: note || "Credit Received",
+          amount: amt,
+          recipientName: "Incoming from " + (req.user?.name || "User"),
+          recipientAccount: `${to.bankName} ${to.accountType} ****${(to.accountNumber || "").slice(-4)}`,
+          status: "completed",
+          transferId,
+          counterpartyShareableId: from.plaidAccountId || "",
+        },
+      ],
+      { session, ordered: true },
+    );
+
+    console.log("Transfer AFTER DB write:", saved);
+
+    await session.commitTransaction();
+    return res.status(200).json({ message: "Transfer successful" });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   } finally {
     session.endSession();
   }
 });
-
 /* ---------------- FAVORITES (UNCHANGED) ---------------- */
 
 router.get("/favorites", auth, async (req, res) => {

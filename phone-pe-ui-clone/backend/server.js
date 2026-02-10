@@ -27,11 +27,34 @@ app.options("*", cors(corsOptions));
 
 app.use(express.json());
 
+// ✅ Global request logging
+app.use((req, res, next) => {
+  try {
+    const safeHeaders = { ...req.headers };
+    if (safeHeaders.authorization) {
+      safeHeaders.authorization = "[REDACTED]";
+    }
+    console.log("API HIT");
+    console.log("Method:", req.method);
+    console.log("URL:", req.originalUrl);
+    console.log("Headers:", safeHeaders);
+    console.log("Body:", req.body);
+    console.log("Params:", req.params);
+    console.log("Query:", req.query);
+  } catch (err) {
+    console.log("Logger error:", err?.message);
+  }
+  next();
+});
+
 // DB
 mongoose
   .connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/financehub")
   .then(() => console.log("Connected to MongoDB"))
   .catch(console.error);
+
+// ✅ Mongoose debug
+mongoose.set("debug", true);
 
 // Routes
 app.use("/api/auth", authRoutes);

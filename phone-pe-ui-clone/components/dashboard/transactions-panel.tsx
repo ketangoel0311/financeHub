@@ -3,8 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Coffee, ShoppingCart, ArrowLeftRight, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ArrowLeftRight,
+  Loader2,
+} from "lucide-react";
+import { cn, formatINR, mapTransferLabel } from "@/lib/utils";
 import { api } from "@/lib/api";
 
 interface Transaction {
@@ -16,15 +21,24 @@ interface Transaction {
   type: string;
 }
 
-const getIconForCategory = (category: string) => {
-  switch (category.toLowerCase()) {
-    case "food & drinks":
-      return { icon: Coffee, iconBg: "bg-amber-100", iconColor: "text-amber-600" };
-    case "groceries":
-      return { icon: ShoppingCart, iconBg: "bg-rose-100", iconColor: "text-rose-600" };
-    default:
-      return { icon: ArrowLeftRight, iconBg: "bg-violet-100", iconColor: "text-violet-600" };
-  }
+const getDirectionIcon = (type: string) => {
+  if (type === "income")
+    return {
+      icon: ArrowDownLeft,
+      iconBg: "bg-emerald-100",
+      iconColor: "text-emerald-600",
+    };
+  if (type === "expense")
+    return {
+      icon: ArrowUpRight,
+      iconBg: "bg-rose-100",
+      iconColor: "text-rose-600",
+    };
+  return {
+    icon: ArrowLeftRight,
+    iconBg: "bg-violet-100",
+    iconColor: "text-violet-600",
+  };
 };
 
 const tabs = ["All", "Expense", "Income"];
@@ -60,7 +74,10 @@ export function TransactionsPanel() {
     <Card className="border-0 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base font-semibold">Transactions</CardTitle>
-        <Link href="/transactions" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          href="/transactions"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
           View all
         </Link>
       </CardHeader>
@@ -72,7 +89,9 @@ export function TransactionsPanel() {
               onClick={() => setActiveTab(tab)}
               className={cn(
                 "text-sm font-medium transition-colors",
-                activeTab === tab ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                activeTab === tab
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {tab}
@@ -86,10 +105,20 @@ export function TransactionsPanel() {
         ) : (
           <div className="space-y-4">
             {filteredTransactions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No transactions found</p>
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No transactions found
+              </p>
             ) : (
               filteredTransactions.map((transaction) => {
-                const { icon: Icon, iconBg, iconColor } = getIconForCategory(transaction.category);
+                console.log(
+                  "FRONTEND RENDER: transactions-panel item",
+                  transaction,
+                );
+                const {
+                  icon: Icon,
+                  iconBg,
+                  iconColor,
+                } = getDirectionIcon(transaction.type);
                 const isIncome = transaction.type === "income";
                 return (
                   <Link
@@ -97,15 +126,34 @@ export function TransactionsPanel() {
                     href={`/transactions/${transaction._id}`}
                     className="flex items-center gap-3 hover:bg-muted/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
                   >
-                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-full", iconBg)}>
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-full",
+                        iconBg,
+                      )}
+                    >
                       <Icon className={cn("h-5 w-5", iconColor)} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{transaction.description}</p>
-                      <p className="text-xs text-muted-foreground truncate">{transaction.recipientName}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {transaction.description ||
+                          mapTransferLabel(
+                            transaction.type,
+                            (transaction as any).category,
+                          )}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {transaction.recipientName}
+                      </p>
                     </div>
-                    <p className={cn("text-sm font-semibold", isIncome ? "text-emerald-500" : "text-foreground")}>
-                      {isIncome ? "+" : "-"}${transaction.amount.toFixed(2)}
+                    <p
+                      className={cn(
+                        "text-sm font-semibold",
+                        isIncome ? "text-emerald-500" : "text-foreground",
+                      )}
+                    >
+                      {isIncome ? "+" : "-"}
+                      {formatINR(Math.abs(transaction.amount))}
                     </p>
                   </Link>
                 );

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Building2, Plus, Loader2, Landmark, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, formatINR } from "@/lib/utils";
 
 interface BankAccount {
   _id: string;
@@ -86,10 +86,7 @@ export default function ConnectBankPage() {
     onExit: () => setLinkToken(null),
   });
 
-  // Debug (remove later)
-  useEffect(() => {
-    console.log("Plaid debug:", { linkToken, ready });
-  }, [linkToken, ready]);
+  // Removed debug logs for production honesty
 
   // Button click
   const handleLinkAccount = async () => {
@@ -158,6 +155,10 @@ export default function ConnectBankPage() {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
+            ) : linkedAccounts.length === 0 && manualAccounts.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No bank accounts linked yet
+              </p>
             ) : (
               <div className="space-y-3">
                 {[...linkedAccounts, ...manualAccounts].map((a) => (
@@ -172,7 +173,7 @@ export default function ConnectBankPage() {
                         {a.accountType} • {a.accountNumber}
                       </p>
                     </div>
-                    <p className="font-semibold">${a.balance.toFixed(2)}</p>
+                    <p className="font-semibold">{formatINR(a.balance)}</p>
                   </div>
                 ))}
               </div>

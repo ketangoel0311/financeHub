@@ -29,89 +29,16 @@ router.post("/register", async (req, res) => {
         .json({ message: "User already exists with this email" });
     }
 
-    // Create user
+    // Create user (no seeded data)
     const user = await User.create({
       name,
       email,
       password,
-      totalBalance: 10000,
-      totalSavings: 5000,
-      totalIncome: 30000,
-      totalExpense: 20000,
+      totalBalance: 0,
+      totalSavings: 0,
+      totalIncome: 0,
+      totalExpense: 0,
     });
-
-    // Create default bank account
-    await Account.create({
-      user: user._id,
-      bankName: "Chase Bank",
-      accountType: "checking",
-      accountNumber: "****" + Math.floor(1000 + Math.random() * 9000),
-      balance: 8500,
-      isDefault: true,
-    });
-
-    await Account.create({
-      user: user._id,
-      bankName: "Bank of America",
-      accountType: "savings",
-      accountNumber: "****" + Math.floor(1000 + Math.random() * 9000),
-      balance: 12000,
-    });
-
-    // Create default contacts
-    const defaultContacts = [
-      { name: "Mike Johnson", email: "mike@email.com", isFavorite: true },
-      { name: "Steve Wilson", email: "steve@email.com", isFavorite: true },
-      { name: "Clark Kent", email: "clark@email.com", isFavorite: true },
-      { name: "John Smith", email: "john@email.com" },
-    ];
-
-    for (const contact of defaultContacts) {
-      await Contact.create({ ...contact, user: user._id });
-    }
-
-    // Create sample transactions
-    const sampleTransactions = [
-      {
-        type: "expense",
-        category: "Food & Drinks",
-        description: "Drinks",
-        amount: 150,
-        recipientName: "Cafe and Restaurant",
-      },
-      {
-        type: "expense",
-        category: "Groceries",
-        description: "Market",
-        amount: 250,
-        recipientName: "Groceries",
-      },
-      {
-        type: "income",
-        category: "Transfer",
-        description: "Quick Transfer",
-        amount: 350,
-        recipientName: "John Smith",
-      },
-      {
-        type: "expense",
-        category: "Food & Drinks",
-        description: "Drinks",
-        amount: 150,
-        recipientName: "Cafe and Restaurant",
-      },
-      {
-        type: "expense",
-        category: "Groceries",
-        description: "Market",
-        amount: 150,
-        recipientName: "Groceries",
-      },
-    ];
-
-    for (const tx of sampleTransactions) {
-      await Transaction.create({ ...tx, user: user._id });
-    }
 
     const token = generateToken(user._id);
 
