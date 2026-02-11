@@ -17,6 +17,7 @@ interface Account {
   accountType: string;
   accountNumber: string;
   balance: number;
+  currentBalance?: number;
 }
 
 export default function TransferPage() {
@@ -27,6 +28,7 @@ export default function TransferPage() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [, setErrors] = useState<Record<string, string>>({});
 
   const { toast } = useToast();
 
@@ -35,6 +37,23 @@ export default function TransferPage() {
       setAccounts(res.accounts || []);
     });
   }, []);
+
+  const selectedAccount = accounts.find((a) => a._id === sourceAccountId);
+  const availableBalance =
+    selectedAccount?.balance ?? selectedAccount?.currentBalance ?? 0;
+  const isAmountInvalid =
+    !amount || Number(amount) <= 0 || Number(amount) > availableBalance;
+
+  const resetTransferForm = () => {
+    setAmount("");
+    setSourceAccountId("");
+    setReceiverShareableId("");
+    setNote("");
+    setErrors({});
+    setLoading(false);
+    setSuccess(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleTransfer = async () => {
     const amt = Number(amount);
@@ -46,28 +65,12 @@ export default function TransferPage() {
       return;
     }
 
-    if (amt <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Amount must be greater than 0",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isAmountInvalid) return;
 
     const src = accounts.find((a) => a._id === sourceAccountId);
     if (!src) {
       toast({
         title: "Source account not found",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (src.balance < amt) {
-      toast({
-        title: "Insufficient balance",
-        description: "Selected source account has insufficient funds",
         variant: "destructive",
       });
       return;
@@ -87,8 +90,6 @@ export default function TransferPage() {
         note: note || undefined,
       });
       console.log("[UI] Transfer API response", response);
-
-      // 🔥 THIS IS THE FIX
       const updated = await api.getAccounts();
       setAccounts(updated.accounts || []);
 
@@ -125,7 +126,7 @@ export default function TransferPage() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" onClick={() => setSuccess(false)}>
+              <Button variant="outline" onClick={resetTransferForm}>
                 Make Another
               </Button>
             </CardContent>
@@ -194,6 +195,11 @@ export default function TransferPage() {
               <p className="text-xs text-muted-foreground text-center">
                 Amount in USD
               </p>
+              {Number(amount) > availableBalance && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Amount exceeds available balance.
+                </p>
+              )}
             </div>
             <div className="h-px bg-border" />
 
@@ -212,12 +218,7 @@ export default function TransferPage() {
             <Button
               className="w-full h-12 text-base font-semibold shadow-md"
               onClick={handleTransfer}
-              disabled={
-                loading ||
-                !sourceAccountId ||
-                !receiverShareableId ||
-                Number(amount) <= 0
-              }
+              disabled={isAmountInvalid || loading}
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

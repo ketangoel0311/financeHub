@@ -32,8 +32,52 @@ export default function DashboardPage() {
 
   const totalBalance = accounts.reduce(
     (sum, a) => sum + (a.balance ?? a.currentBalance ?? 0),
-    0
+    0,
   );
+
+  async function refreshData() {
+    console.log("[POLL] refreshing accounts + transactions");
+    const acc = await api.getAccounts();
+    const txs = await api.getRecentTransactions();
+    const nextAccounts = acc?.accounts || [];
+    const nextRecent = txs || [];
+    setAccounts((prev) => {
+      if (prev.length === nextAccounts.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          const p = prev[i];
+          const n = nextAccounts[i];
+          const pb = p?.balance ?? p?.currentBalance ?? 0;
+          const nb = n?.balance ?? n?.currentBalance ?? 0;
+          if (p?._id !== n?._id || pb !== nb) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextAccounts;
+    });
+    setRecent((prev) => {
+      if (prev.length === nextRecent.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          const p = prev[i];
+          const n = nextRecent[i];
+          if (
+            p?._id !== n?._id ||
+            p?.amount !== n?.amount ||
+            p?.createdAt !== n?.createdAt
+          ) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextRecent;
+    });
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -51,6 +95,59 @@ export default function DashboardPage() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let skipNextPoll = false;
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(() => {
+          if (document.visibilityState === "visible") {
+            if (skipNextPoll) {
+              skipNextPoll = false;
+              return;
+            }
+            refreshData();
+          }
+        }, 5000);
+      }
+    };
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (skipNextPoll) {
+          skipNextPoll = false;
+        } else {
+          refreshData();
+        }
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    const handleConfirmed = () => {
+      skipNextPoll = true;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener(
+      "finance:transfer-confirmed",
+      handleConfirmed as any,
+    );
+    startPolling();
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener(
+        "finance:transfer-confirmed",
+        handleConfirmed as any,
+      );
+    };
   }, []);
 
   // smooth count-up animation
@@ -117,14 +214,11 @@ export default function DashboardPage() {
                     <DoughnutChart
                       accounts={accounts.map((a) => ({
                         name: a.name,
-                        currentBalance:
-                          a.balance ?? a.currentBalance ?? 0,
+                        currentBalance: a.balance ?? a.currentBalance ?? 0,
                       }))}
                     />
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Balance
-                      </p>
+                      <p className="text-sm text-muted-foreground">Balance</p>
                       <p className="text-2xl font-bold">
                         {formatINR(displayBalance)}
                       </p>
@@ -178,16 +272,12 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium">
                         {t.description ||
-                          mapTransferLabel(
-                            t.type,
-                            (t as any).category
-                          )}
+                          mapTransferLabel(t.type, (t as any).category)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(
-                          new Date(t.createdAt),
-                          { addSuffix: true }
-                        )}
+                        {formatDistanceToNow(new Date(t.createdAt), {
+                          addSuffix: true,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -195,19 +285,14 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <p
                       className={`font-semibold ${
-                        isIncome
-                          ? "text-emerald-600"
-                          : "text-rose-600"
+                        isIncome ? "text-emerald-600" : "text-rose-600"
                       }`}
                     >
                       {isIncome ? "+" : "-"}
                       {formatINR(Math.abs(t.amount))}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {format(
-                        new Date(t.createdAt),
-                        "MMM d, h:mm a"
-                      )}
+                      {format(new Date(t.createdAt), "MMM d, h:mm a")}
                     </p>
                   </div>
                 </div>

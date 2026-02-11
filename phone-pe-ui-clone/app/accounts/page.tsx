@@ -75,8 +75,8 @@ export default function AccountsPage() {
       const transactions: Transaction[] = Array.isArray(res)
         ? res
         : Array.isArray(res?.transactions)
-        ? res.transactions
-        : [];
+          ? res.transactions
+          : [];
 
       const now = new Date();
       const month = now.getMonth();
@@ -90,10 +90,7 @@ export default function AccountsPage() {
 
         const txDate = new Date(tx.createdAt);
 
-        if (
-          txDate.getMonth() === month &&
-          txDate.getFullYear() === year
-        ) {
+        if (txDate.getMonth() === month && txDate.getFullYear() === year) {
           if (tx.type === "income") {
             incoming += tx.amount;
           }
@@ -113,6 +110,31 @@ export default function AccountsPage() {
     }
   }, []);
 
+  async function refreshData() {
+    console.log("[POLL] refreshing accounts + transactions");
+    // Refetch accounts and money flow; avoid flicker by minimal state changes
+    const resAcc = await api.getAccounts();
+    const nextAccounts: BankAccount[] = resAcc?.accounts ?? [];
+    const nextTotal = resAcc?.totalBalance ?? 0;
+    setAccounts((prev) => {
+      if (prev.length === nextAccounts.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          const p = prev[i];
+          const n = nextAccounts[i];
+          if (p?._id !== n?._id || p?.balance !== n?.balance) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextAccounts;
+    });
+    setTotalBalance((prev) => (prev === nextTotal ? prev : nextTotal));
+    await fetchMoneyFlow();
+  }
+
   /* ---------------- EFFECT ---------------- */
 
   useEffect(() => {
@@ -123,6 +145,59 @@ export default function AccountsPage() {
     };
     load();
   }, [fetchAccounts, fetchMoneyFlow, pathname]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let skipNextPoll = false;
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(() => {
+          if (document.visibilityState === "visible") {
+            if (skipNextPoll) {
+              skipNextPoll = false;
+              return;
+            }
+            refreshData();
+          }
+        }, 5000);
+      }
+    };
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (skipNextPoll) {
+          skipNextPoll = false;
+        } else {
+          refreshData();
+        }
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    const handleConfirmed = () => {
+      skipNextPoll = true;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener(
+      "finance:transfer-confirmed",
+      handleConfirmed as any,
+    );
+    startPolling();
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener(
+        "finance:transfer-confirmed",
+        handleConfirmed as any,
+      );
+    };
+  }, []);
 
   /* ---------------- UI ---------------- */
 
@@ -257,9 +332,7 @@ export default function AccountsPage() {
                   </div>
 
                   <p className="font-semibold">
-                    {showBalances
-                      ? formatINR(account.balance)
-                      : "••••••"}
+                    {showBalances ? formatINR(account.balance) : "••••••"}
                   </p>
                 </div>
               ))

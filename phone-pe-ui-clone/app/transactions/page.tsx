@@ -26,6 +26,31 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
+  async function refreshData() {
+    console.log("[POLL] refreshing accounts + transactions");
+    const data = await api.getTransactions({ limit: 10, page: 1 });
+    const nextItems: Transaction[] = data.transactions || [];
+    setTransactions((prev) => {
+      if (prev.length === nextItems.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          const p = prev[i];
+          const n = nextItems[i];
+          if (p?._id !== n?._id || p?.amount !== n?.amount || p?.createdAt !== n?.createdAt) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextItems;
+    });
+    const pages = data.pagination?.pages ?? 1;
+    const currentPage = data.pagination?.page ?? 1;
+    setHasMore(currentPage < pages);
+    setPage(currentPage);
+  }
+
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
@@ -39,6 +64,53 @@ export default function TransactionsPage() {
       setIsLoading(false);
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let skipNextPoll = false;
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(() => {
+          if (document.visibilityState === "visible") {
+            if (skipNextPoll) {
+              skipNextPoll = false;
+              return;
+            }
+            refreshData();
+          }
+        }, 5000);
+      }
+    };
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (skipNextPoll) {
+          skipNextPoll = false;
+        } else {
+          refreshData();
+        }
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    const handleConfirmed = () => {
+      skipNextPoll = true;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("finance:transfer-confirmed", handleConfirmed as any);
+    startPolling();
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("finance:transfer-confirmed", handleConfirmed as any);
+    };
   }, []);
 
   const labelFor = (t: Transaction) => {
