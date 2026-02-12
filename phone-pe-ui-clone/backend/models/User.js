@@ -1,65 +1,139 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// const mongoose = require('mongoose');
+// const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true
-  },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: 6,
-    select: false
-  },
-  avatar: {
-    type: String,
-    default: ''
-  },
-  phone: {
-    type: String,
-    default: ''
-  },
-  totalBalance: {
-    type: Number,
-    default: 0
-  },
-  totalSavings: {
-    type: Number,
-    default: 0
-  },
-  totalIncome: {
-    type: Number,
-    default: 0
-  },
-  totalExpense: {
-    type: Number,
-    default: 0
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+// const userSchema = new mongoose.Schema({
+//   name: {
+//     type: String,
+//     required: [true, 'Name is required'],
+//     trim: true
+//   },
+//   email: {
+//     type: String,
+//     required: [true, 'Email is required'],
+//     unique: true,
+//     lowercase: true,
+//     trim: true
+//   },
+//   password: {
+//     type: String,
+//     required: [true, 'Password is required'],
+//     minlength: 6,
+//     select: false
+//   },
+//   avatar: {
+//     type: String,
+//     default: ''
+//   },
+//   phone: {
+//     type: String,
+//     default: ''
+//   },
+//   totalBalance: {
+//     type: Number,
+//     default: 0
+//   },
+//   totalSavings: {
+//     type: Number,
+//     default: 0
+//   },
+//   totalIncome: {
+//     type: Number,
+//     default: 0
+//   },
+//   totalExpense: {
+//     type: Number,
+//     default: 0
+//   },
+//   createdAt: {
+//     type: Date,
+//     default: Date.now
+//   }
+// });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+// // Hash password before saving
+// userSchema.pre('save', async function(next) {
+//   if (!this.isModified('password')) return next();
+//   this.password = await bcrypt.hash(this.password, 12);
+//   next();
+// });
+
+// // Compare password method
+// userSchema.methods.comparePassword = async function(candidatePassword) {
+//   return await bcrypt.compare(candidatePassword, this.password);
+// };
+
+// module.exports = mongoose.model('User', userSchema);
+
+
+
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
+/**
+ * User Model
+ *
+ * Financial totals are NOT stored here.
+ * Balance is derived from LedgerEntry.
+ */
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+      select: false,
+    },
+
+    avatar: {
+      type: String,
+      default: "",
+    },
+
+    phone: {
+      type: String,
+      default: "",
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { versionKey: false }
+);
+
+/* ===============================
+   PASSWORD HASHING
+================================ */
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+/* ===============================
+   PASSWORD COMPARISON
+================================ */
+
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);

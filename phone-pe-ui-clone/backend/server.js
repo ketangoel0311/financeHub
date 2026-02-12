@@ -56,6 +56,22 @@ mongoose
 // ✅ Mongoose debug
 mongoose.set("debug", true);
 
+// Change Stream Observability: real-time DB events
+const LedgerEntry = require("./models/LedgerEntry");
+const Transaction = require("./models/Transaction");
+mongoose.connection.once("open", () => {
+  try {
+    LedgerEntry.watch().on("change", (change) => {
+      console.log("[CHANGE STREAM] Ledger:", change);
+    });
+    Transaction.watch().on("change", (change) => {
+      console.log("[CHANGE STREAM] Transaction:", change);
+    });
+  } catch (err) {
+    console.log("[ERROR] Change stream init failed:", err?.message);
+  }
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);

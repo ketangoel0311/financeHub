@@ -10,6 +10,11 @@ class ApiService {
     return null;
   }
 
+  /* ---------- IDEMPOTENCY KEY GENERATOR ---------- */
+  private generateIdempotencyKey(): string {
+    return `IDEMP-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   /* ---------- CORE REQUEST ---------- */
   private async request<T>(
     endpoint: string,
@@ -26,27 +31,6 @@ class ApiService {
       (headers as Record<string, string>).Authorization = `Bearer ${token}`;
     }
 
-    // 🔍 Safe log (no token leak)
-    const safeHeaders = { ...(headers as Record<string, string>) };
-    if (safeHeaders.Authorization) {
-      safeHeaders.Authorization = "[REDACTED]";
-    }
-
-    console.log("FRONTEND API REQUEST", {
-      url: `${API_URL}${endpoint}`,
-      method: options.method || "GET",
-      headers: safeHeaders,
-      body: options.body
-        ? (() => {
-            try {
-              return JSON.parse(options.body as string);
-            } catch {
-              return options.body;
-            }
-          })()
-        : undefined,
-    });
-
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
@@ -55,17 +39,8 @@ class ApiService {
     const data = await response.json();
 
     if (!response.ok) {
-      console.log("FRONTEND API RESPONSE ERROR", {
-        status: response.status,
-        data,
-      });
       throw new Error(data.message || "Something went wrong");
     }
-
-    console.log("FRONTEND API RESPONSE SUCCESS", {
-      status: response.status,
-      data,
-    });
 
     return data;
   }
@@ -137,8 +112,18 @@ class ApiService {
 
   /* ---------- ACCOUNTS ---------- */
 
-  async getAccounts() {
-    return this.request<any>("/accounts");
+  async getAccounts(): Promise<{
+    accounts: Array<{
+      _id: string;
+      bankName: string;
+      accountType: string;
+      accountNumber: string;
+      balance: number;
+      plaidAccountId?: string;
+    }>;
+    totalBalance: number;
+  }> {
+    return this.request("/accounts");
   }
 
   async getAccountsSummary() {
@@ -154,7 +139,6 @@ class ApiService {
     bankName: string;
     accountType: string;
     accountNumber: string;
-    balance?: number;
   }) {
     return this.request<any>("/accounts", {
       method: "POST",
@@ -168,28 +152,38 @@ class ApiService {
     });
   }
 
-  /* ---------- TRANSFER ---------- */
-
-  async getContacts(search?: string) {
-    const params = search ? `?search=${encodeURIComponent(search)}` : "";
-    return this.request<any[]>(`/transfer/contacts${params}`);
-  }
-
-  async getFavoriteContacts() {
-    return this.request<any[]>("/transfer/favorites");
-  }
+  /* ---------- TRANSFER (IDEMPOTENT SAFE) ---------- */
 
   async internalTransfer(data: {
     sourceAccountId: string;
     receiverShareableId: string;
     amount: number;
     note?: string;
+    idempotencyKey?: string;
   }) {
-    console.log("FRONTEND EVENT: transfer initiated", data);
-    return this.request<{ message: string }>("/transfer", {
+    const payload = {
+      ...data,
+      idempotencyKey:
+        data.idempotencyKey || this.generateIdempotencyKey(),
+    };
+
+    return this.request<{
+      message: string;
+      transferId?: string;
+    }>("/transfer", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
+  }
+
+  /* ---------- LEDGER DEBUG ---------- */
+
+  async getLedgerBalanceDebug(accountId: string) {
+    return this.request<{
+      totalCredits: number;
+      totalDebits: number;
+      computedBalance: number;
+    }>(`/debug/balance/${accountId}`);
   }
 
   /* ---------- PLAID ---------- */
