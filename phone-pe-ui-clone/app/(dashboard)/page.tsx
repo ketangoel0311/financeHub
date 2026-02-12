@@ -9,7 +9,7 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { formatINR, mapTransferLabel } from "@/lib/utils";
 
-const DoughnutChart = dynamic(() => import("../../components/DoughnutChart"), {
+const DoughnutChart = dynamic(() => import("../../components/dashboard/DoughnutChart"), {
   ssr: false,
 });
 
