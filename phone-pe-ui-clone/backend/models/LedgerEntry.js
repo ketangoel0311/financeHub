@@ -66,4 +66,3 @@ ledgerEntrySchema.index({ accountId: 1, createdAt: -1 });
 // Model-level logging to confirm load
 console.log("[MODEL] LedgerEntry loaded");
 module.exports = mongoose.model("LedgerEntry", ledgerEntrySchema);
-
